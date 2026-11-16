@@ -9,6 +9,9 @@ company:
 run-all:
 	$(MAKE) inventory &
 	$(MAKE) company &
+	
+stop-all:
+	kill $(shell ps aux | grep 'uvicorn' | awk '{print $2}')
 
 create-tables:
 	cd "$(dir $(abspath $(lastword $(MAKEFILE_LIST))))" && uv run python -m shared.db.main

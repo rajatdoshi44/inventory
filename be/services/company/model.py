@@ -1,5 +1,8 @@
 from shared.api.response import APIResponse
 from shared.db.company_model import Company
+from sqlalchemy.exc import IntegrityError
+from services.company.type import CompaniesListResponse
+from sqlalchemy import func
 
 def create_company_model(company_data, db) -> APIResponse[dict]:
     try:
@@ -22,6 +25,23 @@ def create_company_model(company_data, db) -> APIResponse[dict]:
         db.refresh(company_model)
 
         return APIResponse(data={"company_id": company_model.company_id}, status=200, msg="Company created successfully")
+    
+    except IntegrityError as e:
+        db.rollback()
+        return APIResponse(data=None, status=400, msg=f"Integrity error: {str(e.orig)}")
     except Exception as e:
         return APIResponse(data=None, status=500, msg=f"Failed to create company: {str(e)}")
-    
+
+
+def get_companies_list_model(payload,db)->APIResponse[CompaniesListResponse | None]:
+    try:
+        page = payload.page_number
+        page_size = payload.limit
+        offset = (page - 1) * page_size
+        base_query= db.query(Company)
+        response = base_query.order_by(Company.company_id.asc()).offset(offset).limit(page_size).all()
+        total_companies = base_query.with_entities(func.count(Company.company_id)).scalar()
+        
+        return APIResponse(data= CompaniesListResponse(total_companies=total_companies, data=response), status=200, msg="Successfully retrieved companies.")
+    except Exception as e:
+        return APIResponse(data= None, status=500, msg=str(e))

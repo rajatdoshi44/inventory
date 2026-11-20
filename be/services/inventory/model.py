@@ -4,22 +4,32 @@ from shared.db.inventory_model import Inventory
 from shared.api.response import APIResponse
 from shared.llm.model import llm_model_generate_embedding
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from shared.db.company_model import Company
 
 def create_inventory_model(item: CreateInventoryRequest, db: Session):
     try:
         # Create a new inventory instance
-        contents = f"Product Name: {item.product_name}"
+        company = db.query(Company).where(Company.company_id == item.company_id).first()
+        if not  company:
+         return APIResponse(data=None, status=200, msg="Company not found")
+               
+        contents = f"Product Name: {item.product_name}, Product Description: {item.product_description}, Product model: {item.product_model}, Company Name: {Company.company_name}"
         embedding = llm_model_generate_embedding(
             contents=contents,
             task_type="RETRIEVAL_DOCUMENT",
         )
-        new_inventory = Inventory(product_name=item.product_name, embedding=embedding)
+        new_inventory = Inventory(**item.model_dump(), embedding=embedding)
         
         # Add the new inventory to the session and commit
         db.add(new_inventory)
         db.commit()
         db.refresh(new_inventory)
         return APIResponse(data=CreateInventoryResponse(product_id=new_inventory.product_id, product_name=new_inventory.product_name), status=200, msg="Inventory created successfully")
+    except IntegrityError as e:
+        db.rollback()  # Mandatory: reset the failed transaction
+        error_detail = str(e.orig)
+        return APIResponse(data=None, status=500, msg=f"An error occurred: {str(error_detail)}")
     except Exception as e:
         db.rollback()
         return APIResponse(data=None, status=500, msg=f"An error occurred: {str(e)}")

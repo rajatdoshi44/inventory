@@ -22,7 +22,21 @@ class CreateInventoryResponse(BaseModel):
     cosine_distance: float | None = None
 
 
+# Inventory List
 class InventoryListRequest(BaseModel):
     search_query: str
     page: int
     limit: int  
+
+class Inventory(BaseModel):
+    product_name: str
+    product_description : str
+    product_price : float
+    product_quantity :int
+    product_model : str
+    currency : str
+    company_id : int
+
+class InventoryListResponse(BaseModel):
+    total_records: int
+    data: list[Inventory]

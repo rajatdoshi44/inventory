@@ -1,4 +1,4 @@
-from services.inventory.type import CreateInventoryRequest, CreateInventoryResponse, InventoryListRequest
+from services.inventory.type import CreateInventoryRequest, CreateInventoryResponse, InventoryListRequest, Inventory as InventoryData, InventoryListResponse
 from requests import Session
 from shared.db.inventory_model import Inventory
 from shared.api.response import APIResponse
@@ -37,6 +37,7 @@ def create_inventory_model(item: CreateInventoryRequest, db: Session):
 
 def list_inventory_model(payload: InventoryListRequest, db: Session):
     try:
+        total_rows = db.query(Inventory).count()
         # Calculate offset for pagination
         offset = (payload.page - 1) * payload.limit
         
@@ -44,11 +45,14 @@ def list_inventory_model(payload: InventoryListRequest, db: Session):
         inventory_items = db.query(Inventory).offset(offset).limit(payload.limit).all()
         
         # Prepare the response data
-        response_data = [CreateInventoryResponse(product_id=item.product_id, product_name=item.product_name) for item in inventory_items]
+        response_data = [
+            InventoryData.model_validate(item, from_attributes=True) 
+            for item in inventory_items
+        ]
         
-        return APIResponse(data=response_data, status=200, msg="Inventory list retrieved successfully")
+        return APIResponse(data=InventoryListResponse(total_records=total_rows, data=response_data), status=200, msg="Inventory list retrieved successfully")
     except Exception as e:
-        raise APIResponse(data=None, status=500, msg=f"An error occurred: {str(e)}")
+        return APIResponse(data=None, status=500, msg=f"An error occurred: {str(e)}")
 
 def inventory_semantic_search_model(payload: InventoryListRequest, db: Session):
     try:
